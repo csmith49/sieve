@@ -2,8 +2,9 @@
 Simple CLI wrapper around `backend.FileBackend` instances.
 """
 
-from os import path
+from os import path, mkdir, remove as rm
 from datetime import datetime
+from functools import update_wrapper
 
 from rich import print as pprint
 import click
@@ -11,13 +12,34 @@ import click
 from .backend import FileBackend
 from . import arxiv
 
-@click.group()
-def without_backend():
-    """
-    Utilities for direct API access and backend creation.
-    """
 
-@without_backend.command()
+def pass_backend(f):
+    @click.pass_context
+    def new_func(ctx, *args, **kwargs):
+        # The stored object is the backend filepath.
+        if not path.exists(ctx.obj):
+            print("No backend file. Run the init command.")
+            raise click.Abort()
+        backend = FileBackend.load(ctx.obj)
+        return ctx.invoke(f, backend, *args, **kwargs)
+
+    return update_wrapper(new_func, f)
+
+
+@click.group()
+@click.option("--backend-file", envvar="SIEVE_BACKEND_FILE", default="sieve")
+@click.pass_context
+def cli(ctx: click.Context, backend_file: str):
+    """
+    Query, store, and analyze arXiv papers.
+    """
+    backend_filepath = path.join(
+        click.get_app_dir("Sieve", force_posix=True), backend_file
+    )
+    ctx.obj = backend_filepath
+
+
+@cli.command()
 @click.argument("query_string", type=str)
 @click.option("--max_results", type=int, default=10)
 def query(query_string: str, max_results: int):
@@ -29,19 +51,21 @@ def query(query_string: str, max_results: int):
         pprint(paper)
 
 
-@without_backend.command()
-@click.option("--backend-file", envvar="SIEVE_BACKEND_FILE", default=".sieve")
+@cli.command()
 @click.option("--query-string", type=str, default="cat:cs.AI")
 @click.option("--initial-date", type=click.DateTime(), default=str(datetime.today()))
-def init(backend_file: str, query_string: str, initial_date: datetime):
+@click.pass_obj
+def init(backend_filepath: str, query_string: str, initial_date: datetime):
     """
     Initialize a backend file.
     """
-    backend_filepath = path.join(
-        click.get_app_dir("Sieve", force_posix=True), backend_file
-    )
+    # Ensure the app directory exists.
+    app_directory = click.get_app_dir("Sieve", force_posix=True)
+    if not path.exists(app_directory):
+        mkdir(app_directory)
+
     if path.exists(backend_filepath):
-        print(f"Cannot initialize {backend_file} -- already exists.")
+        print("Cannot initialize backend -- already exists.")
         exit(-1)
 
     backend = FileBackend.initialize(
@@ -49,26 +73,18 @@ def init(backend_file: str, query_string: str, initial_date: datetime):
     )
     backend.dump()
 
-
-@click.group()
-@click.option("--backend-file", envvar="SIEVE_BACKEND_FILE", default=".sieve")
-@click.pass_context
-def with_backend(ctx: click.Context, backend_file: str):
-    """
-    Utilities for manipulating sieve backend files.
-    """
-    backend_filepath = path.join(
-        click.get_app_dir("Sieve", force_posix=True), backend_file
-    )
-    if not path.exists(backend_filepath):
-        print(f"No {backend_file}. Run the init command first.")
-        exit(-1)
-
-    ctx.obj = FileBackend.load(backend_filepath)
-
-
-@with_backend.command()
+@cli.command()
 @click.pass_obj
+def delete(backend_filepath: str):
+    """
+    Delete a backend file.
+    """
+    click.confirm("Are you sure? This cannot be undone.")
+    if path.exists(backend_filepath):
+        rm(backend_filepath)
+
+@cli.command()
+@pass_backend
 def update(backend: FileBackend):
     """
     Read new entries from the arXiv API.
@@ -77,7 +93,26 @@ def update(backend: FileBackend):
     backend.dump()
 
 
-cli = click.CommandCollection(sources=[without_backend, with_backend])
-"""
-Entrypoint `click.Command` for the sieve CLI.
-"""
+@cli.command()
+@pass_backend
+def details(backend: FileBackend):
+    """
+    See details about the backend file.
+    """
+    result = {
+        "filepath": backend.filepath,
+        "papers": len(backend.collection.papers),
+        "tags": len(backend.collection.tags),
+        "filesize": f"{path.getsize(backend.filepath)/(1<<20):.2f} MB",
+    }
+    pprint(result)
+
+
+@cli.command()
+@pass_backend
+def papers(backend: FileBackend):
+    """
+    List all papers.
+    """
+    for paper in backend.papers():
+        pprint(paper)

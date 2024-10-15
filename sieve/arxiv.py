@@ -96,7 +96,11 @@ def query(
 
     while True:
 
-        url = search_url(query_string, page=page, max_results=min(max_results, 1000))
+        url = search_url(
+            query_string,
+            page=page,
+            max_results=min(max_results, 1000) if max_results else 1000,
+        )
         data = get_feed(url)
 
         for entry in data["entries"]:
