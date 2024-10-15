@@ -132,3 +132,4 @@ class FileBackend:
             self.collection.query_string, until=self.collection.date_updated
         )
         self.collection.papers.extend(new_papers)
+        self.collection.date_updated = datetime.now()

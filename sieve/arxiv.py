@@ -54,7 +54,7 @@ def paper_from_arxiv_entry(entry: dict[str, Any]) -> Paper:
     Build a `Paper` from an entry in arXiv's Atom feed.
     """
     return Paper(
-        id=entry["id"],
+        id=entry["id"].split("/")[-1],
         title=" ".join(entry["title"].replace("\n", " ").split()),
         authors=[author["name"] for author in entry["authors"]],
         abstract=entry["summary"].replace("\n", " "),

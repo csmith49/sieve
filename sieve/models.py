@@ -22,6 +22,27 @@ class Paper(BaseModel):
     categories: list[str]
     embedding: list[float] | None
 
+    @property
+    def rich_authors(self) -> str:
+        """
+        Authors of the paper rendered as a `rich`-compatible string.
+        """
+        match self.authors:
+            case []:
+                return ""
+            case [author]:
+                return author.split(" ")[-1]
+            case [first, second]:
+                first = first.split(" ")[-1]
+                second = second.split(" ")[-1]
+                return f"{first} and {second}"
+            case [first, second, *rest]:
+                first = first.split(" ")[-1]
+                second = second.split(" ")[-1]
+                return (
+                    f"{first}, {second}, [dim]and[/dim] {len(rest)} [dim]others[/dim]"
+                )
+
 
 class Tag(BaseModel):
     """

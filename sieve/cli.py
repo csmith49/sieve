@@ -2,12 +2,18 @@
 Simple CLI wrapper around `backend.FileBackend` instances.
 """
 
+# pylint: disable=redefined-outer-name
+# pylint: disable=redefined-builtin
+# pylint: disable=function-redefined
+
 from os import path, mkdir, remove as rm
 from datetime import datetime
 from functools import update_wrapper
 from typing import Iterable
 
-from rich import print as pprint, status
+from rich import print as pprint
+from rich.status import Status
+from rich.table import Table
 import click
 
 from .backend import FileBackend
@@ -96,7 +102,7 @@ def update(backend: FileBackend):
     """
     Read new entries from the arXiv API.
     """
-    with status.Status("Fetching from arXiv..."):
+    with Status("Fetching from arXiv..."):
         backend.update()
     backend.dump()
 
@@ -124,27 +130,54 @@ def papers():
 
 
 @papers.command()
+@click.option("--today", is_flag=True)
 @pass_backend
-def list(backend: FileBackend):  # pylint: disable=redefined-builtin
+def list(backend: FileBackend, today: bool):
     """
     List all papers.
     """
+    todays_date = datetime.today().date()
+    if today and backend.collection.date_updated.date() < todays_date:
+        pprint("WARNING: cannot get papers today, not yet updated.")
+
+    table = Table()
+    table.add_column("id", style="green")
+    table.add_column("title")
+    table.add_column("authors")
+    table.add_column("published", style="blue", justify="right")
+
     for paper in backend.papers():
-        pprint(paper)
+        if today and paper.date_updated.date() < todays_date:
+            continue
+
+        table.add_row(
+            paper.id, paper.title, paper.rich_authors, str(paper.date_updated.date())
+        )
+
+    pprint(table)
 
 
 @papers.command()
 @click.argument("id", type=str)
 @click.argument("tags", type=str, nargs=-1)
 @pass_backend
-# pylint: disable-next=redefined-builtin, redefined-outer-name
 def tag(backend: FileBackend, id: str, tags: Iterable[str]):
     """
     Add tags to a paper.
     """
-    for tag in backend.tags():  # pylint: disable=redefined-outer-name
+    for tag in backend.tags():
         if tag.stub in tags:
             tag.items.append(id)
+
+
+@papers.command()
+@click.argument("id", type=str)
+@pass_backend
+def details(backend: FileBackend, id: str):
+    """
+    List all stored details about the paper.
+    """
+    pprint(backend.paper(id))
 
 
 @cli.group()
@@ -156,20 +189,32 @@ def tags():
 
 @tags.command()
 @pass_backend
-def list(backend: FileBackend):  # pylint: disable=redefined-builtin, function-redefined
+def list(backend: FileBackend):
     """
     List all tags.
     """
-    for tag in backend.tags:  # pylint: disable=redefined-outer-name
+    for tag in backend.tags:
         pprint(tag)
 
 
 @tags.command()
 @click.argument("tag", type=str)
 @pass_backend
-def add(backend: FileBackend, tag: str):  # pylint: disable=redefined-outer-name
+def add(backend: FileBackend, tag: str):
     """
     Add a fresh tag.
     """
     backend.add_tag(tag)
     backend.dump()
+
+
+@tags.command()
+@click.argument("tag", type=str)
+@pass_backend
+def papers(backend: FileBackend, tag: str):
+    """
+    All papers with the tag.
+    """
+    for id in backend.tag(tag).items:
+        paper = backend.paper(id)
+        pprint(paper)
