@@ -78,6 +78,7 @@ class FileBackend:
         for paper in self.papers():
             yield paper.id
 
+    # pylint: disable-next=redefined-builtin
     def paper(self, id: str) -> Paper:
         """
         Find and return a paper with the given id.
@@ -106,6 +107,9 @@ class FileBackend:
         yield from self.collection.tags
 
     def update(self) -> None:
+        """
+        Extend the collection with any papers published since the last update.
+        """
         new_papers = query(
             self.collection.query_string, until=self.collection.date_updated
         )

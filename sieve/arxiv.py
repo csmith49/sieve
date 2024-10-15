@@ -60,6 +60,7 @@ def paper_from_arxiv_entry(entry: dict[str, Any]) -> Paper:
         abstract=entry["summary"].replace("\n", " "),
         date_published=datetime(*entry["published_parsed"][:6]),
         date_updated=datetime(*entry["updated_parsed"][:6]),
+        categories=[tag["term"] for tag in entry["tags"]],
         embedding=None,
     )
 
@@ -73,14 +74,15 @@ def get_feed(
     Args:
         url (str)
 
-        backoff_scaling (float, default=1.5): How much to scale the wait time by whenever a new try is made.
+        backoff_scaling (float, default=1.5): How much to scale the wait time by whenever a new try
+        is made.
     """
-
     for current_try in range(max_tries):
         try:
             return parse(urlopen(url).read().decode("utf-8"))
+        # pylint: disable-next=bare-except
         except:
-            sleep(3 * backoff_scaling**current_try)
+            sleep(3 * pow(backoff_scaling, current_try))
 
     raise ValueError
 
@@ -88,14 +90,21 @@ def get_feed(
 def query(
     query_string: str, until: datetime | None = None, max_results: int | None = None
 ) -> Iterable[Paper]:
+    """
+    Args:
+        query_string (str)
+
+        until (datetime | None, default=None)
+
+        max_results (int | None, default=None)
+    """
     # At least one stop condition needs to be set.
     if until is None and max_results is None:
-        raise ValueError
+        raise ValueError("Need at least one stop condition set.")
 
     page, count = 0, 0
 
     while True:
-
         url = search_url(
             query_string,
             page=page,
@@ -107,12 +116,14 @@ def query(
             paper = paper_from_arxiv_entry(entry)
             yield paper_from_arxiv_entry(entry)
 
-            # After we've yielded a `Paper`, check that we haven't exceeded our limit. If we have, it's time to stop.
+            # After we've yielded a `Paper`, check that we haven't exceeded our limit. If we have,
+            # it's time to stop.
             count += 1
             if max_results is not None and count >= max_results:
                 return
 
-            # If the paper was published _before_ the optional `until` argument, stop the iteration. We don't need it.
+            # If the paper was published _before_ the optional `until` argument, stop the
+            # iteration. We don't need it.
             if until and paper.date_published < until:
                 return
 

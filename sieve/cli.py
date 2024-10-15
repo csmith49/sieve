@@ -6,7 +6,7 @@ from os import path, mkdir, remove as rm
 from datetime import datetime
 from functools import update_wrapper
 
-from rich import print as pprint
+from rich import print as pprint, status
 import click
 
 from .backend import FileBackend
@@ -89,7 +89,8 @@ def update(backend: FileBackend):
     """
     Read new entries from the arXiv API.
     """
-    backend.update()
+    with status.Status("Fetching from arXiv..."):
+        backend.update()
     backend.dump()
 
 
