@@ -5,6 +5,7 @@ Simple CLI wrapper around `backend.FileBackend` instances.
 from os import path, mkdir, remove as rm
 from datetime import datetime
 from functools import update_wrapper
+from typing import Iterable
 
 from rich import print as pprint, status
 import click
@@ -14,6 +15,10 @@ from . import arxiv
 
 
 def pass_backend(f):
+    """
+    Passes the backend identified by the `Context.obj` value as the first argument to the command.
+    """
+
     @click.pass_context
     def new_func(ctx, *args, **kwargs):
         # The stored object is the backend filepath.
@@ -73,6 +78,7 @@ def init(backend_filepath: str, query_string: str, initial_date: datetime):
     )
     backend.dump()
 
+
 @cli.command()
 @click.pass_obj
 def delete(backend_filepath: str):
@@ -82,6 +88,7 @@ def delete(backend_filepath: str):
     click.confirm("Are you sure? This cannot be undone.")
     if path.exists(backend_filepath):
         rm(backend_filepath)
+
 
 @cli.command()
 @pass_backend
@@ -109,11 +116,60 @@ def details(backend: FileBackend):
     pprint(result)
 
 
-@cli.command()
+@cli.group()
+def papers():
+    """
+    List and tag papers.
+    """
+
+
+@papers.command()
 @pass_backend
-def papers(backend: FileBackend):
+def list(backend: FileBackend):  # pylint: disable=redefined-builtin
     """
     List all papers.
     """
     for paper in backend.papers():
         pprint(paper)
+
+
+@papers.command()
+@click.argument("id", type=str)
+@click.argument("tags", type=str, nargs=-1)
+@pass_backend
+# pylint: disable-next=redefined-builtin, redefined-outer-name
+def tag(backend: FileBackend, id: str, tags: Iterable[str]):
+    """
+    Add tags to a paper.
+    """
+    for tag in backend.tags():  # pylint: disable=redefined-outer-name
+        if tag.stub in tags:
+            tag.items.append(id)
+
+
+@cli.group()
+def tags():
+    """
+    Add, list, and update tags.
+    """
+
+
+@tags.command()
+@pass_backend
+def list(backend: FileBackend):  # pylint: disable=redefined-builtin, function-redefined
+    """
+    List all tags.
+    """
+    for tag in backend.tags:  # pylint: disable=redefined-outer-name
+        pprint(tag)
+
+
+@tags.command()
+@click.argument("tag", type=str)
+@pass_backend
+def add(backend: FileBackend, tag: str):  # pylint: disable=redefined-outer-name
+    """
+    Add a fresh tag.
+    """
+    backend.add_tag(tag)
+    backend.dump()

@@ -33,17 +33,17 @@ class FileBackend:
         filepath: str, query_string: str, initial_date: datetime
     ) -> FileBackend:
         """
+        Build a fresh file backend in-memory. Be sure to call `FileBackend.dump` to persist.
+
         Args:
             filepath (str)
             query_string (str)
             initial_date (datetime)
         """
-        collection = Collection(query_string=query_string, date_updated=initial_date)
-        backend = FileBackend(filepath=filepath, collection=collection)
-
-        backend.dump()
-
-        return backend
+        return FileBackend(
+            filepath=filepath,
+            collection=Collection(query_string=query_string, date_updated=initial_date),
+        )
 
     @staticmethod
     def load(filepath: str) -> FileBackend:
@@ -91,7 +91,7 @@ class FileBackend:
         """
         for paper in self.papers():
             if paper.id == id:
-                return Paper
+                return paper
         raise ValueError
 
     def papers(self) -> Iterable[Paper]:
@@ -100,11 +100,29 @@ class FileBackend:
         """
         yield from self.collection.papers
 
+    def tag(self, stub: str) -> Tag:
+        """
+        Find and return a tag with the given stub.
+        """
+        for tag in self.tags():
+            if tag.stub == stub:
+                return tag
+        raise ValueError
+
     def tags(self) -> Iterable[Tag]:
         """
         Iterate over all tags.
         """
         yield from self.collection.tags
+
+    def add_tag(self, stub: str, items: list[str] | None = None) -> None:
+        """
+        Add a new tag to the collection.
+        """
+        tag = Tag.from_stub(stub)
+        if items:
+            tag.items.extend(items)
+        self.collection.tags.append(tag)
 
     def update(self) -> None:
         """
