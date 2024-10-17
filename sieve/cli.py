@@ -10,14 +10,20 @@ from os import path, mkdir, remove as rm
 from datetime import datetime
 from functools import update_wrapper
 from typing import Iterable
+from itertools import islice
+
+import numpy as np
+from numpy.linalg import norm
 
 from rich import print as pprint
 from rich.status import Status
 from rich.table import Table
+from rich.progress import track
 import click
 
-from .backend import FileBackend
-from . import arxiv
+from sieve.backend import FileBackend
+from sieve.embedding import embed
+from sieve import arxiv
 
 
 def pass_backend(f):
@@ -158,6 +164,46 @@ def list(backend: FileBackend, today: bool):
 
 
 @papers.command()
+@click.argument("search_term", type=str)
+@click.option("--results", type=int, default=10)
+@pass_backend
+def search(backend: FileBackend, search_term: str, results: int):
+    """
+    Search all papers.
+    """
+    search_embedding = np.array(embed(search_term))
+    rows = []
+    for paper in backend.papers():
+        if paper.embedding is None:
+            continue
+
+        embedding = np.array(paper.embedding)
+        cosine_similarity = np.dot(search_embedding, embedding) / (
+            norm(search_embedding) * norm(embedding)
+        )
+        row = (
+            cosine_similarity,
+            paper.id,
+            paper.title,
+            paper.rich_authors,
+            str(paper.date_updated.date()),
+        )
+        rows.append(row)
+
+    table = Table()
+    table.add_column("similarity")
+    table.add_column("id", style="green")
+    table.add_column("title")
+    table.add_column("authors")
+    table.add_column("published", style="blue", justify="right")
+
+    for row in islice(sorted(rows, key=lambda row: row[0], reverse=True), results):
+        table.add_row(f"{row[0]:.2f}", *row[1:])
+
+    pprint(table)
+
+
+@papers.command()
 @click.argument("id", type=str)
 @click.argument("tags", type=str, nargs=-1)
 @pass_backend
@@ -178,6 +224,21 @@ def details(backend: FileBackend, id: str):
     List all stored details about the paper.
     """
     pprint(backend.paper(id))
+
+
+@papers.command()
+@pass_backend
+def embedding(backend: FileBackend):
+    """
+    Mess with embeddings.
+    """
+    to_embed = [paper for paper in backend.papers() if paper.embedding is None]
+    click.confirm(f"Embedding {len(to_embed)} papers. Continue?")
+
+    for paper in track(to_embed, description="Embedding..."):
+        paper.embedding = embed(paper.model_dump_json())
+
+    backend.dump()
 
 
 @cli.group()

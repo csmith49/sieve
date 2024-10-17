@@ -1,4 +1,9 @@
 click
 pydantic
+pydantic-settings
 feedparser
-dotenv
+python-dotenv
+openai
+numpy
+scikit-learn
+fastapi[standard]
