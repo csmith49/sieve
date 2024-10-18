@@ -23,36 +23,33 @@ import click
 
 from sieve.backend import FileBackend
 from sieve.embedding import embed
+from sieve.config import SETTINGS
 from sieve import arxiv
 
 
 def pass_backend(f):
     """
-    Passes the backend identified by the `Context.obj` value as the first argument to the command.
+    Passes the backend identified in the settings to the function.
     """
-
     @click.pass_context
     def new_func(ctx, *args, **kwargs):
         # The stored object is the backend filepath.
-        if not path.exists(ctx.obj):
+        if not path.exists(SETTINGS.file_backend):
             print("No backend file. Run the init command.")
             raise click.Abort()
-        backend = FileBackend.load(ctx.obj)
+        backend = FileBackend.load(SETTINGS.file_backend)
         return ctx.invoke(f, backend, *args, **kwargs)
 
     return update_wrapper(new_func, f)
 
 
 @click.group()
-@click.option("--backend-file", envvar="SIEVE_BACKEND_FILE", default="sieve")
 @click.pass_context
-def cli(ctx: click.Context, backend_file: str):
+def cli(ctx: click.Context):
     """
     Query, store, and analyze arXiv papers.
     """
-    backend_filepath = path.join(
-        click.get_app_dir("Sieve", force_posix=True), backend_file
-    )
+    backend_filepath = SETTINGS.file_backend
     ctx.obj = backend_filepath
 
 

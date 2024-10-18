@@ -20,6 +20,7 @@ class Paper(BaseModel):
     date_published: datetime
     date_updated: datetime
     categories: list[str]
+    interest: bool = False
     embedding: list[float] | None
 
     @property
