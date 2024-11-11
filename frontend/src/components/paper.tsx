@@ -8,6 +8,8 @@ import {
   CollapsibleTrigger,
 } from "./ui/collapsible";
 import { Table, TableBody, TableCell, TableRow } from "./ui/table";
+import { ChevronDown, ChevronUp } from "lucide-react";
+import { Button } from "./ui/button";
 
 export type Paper = {
   id: string;
@@ -82,7 +84,7 @@ export function PaperDetailsTable(props: { paper: Paper }) {
             abstract
           </TableCell>
           <TableCell className="whitespace-pre-line">
-            {props.paper.abstract}
+            <p>{props.paper.abstract}</p>
           </TableCell>
         </TableRow>
         <TableRow key="details-categories">
@@ -97,9 +99,14 @@ export function PaperDetailsTable(props: { paper: Paper }) {
 }
 
 function PaperListItem(props: { paper: Paper }) {
+  const [detailsVisible, setDetailsVisible] = useState<boolean>(false);
   return (
     <li key={props.paper.id} className="pb-4 border-b-2">
-      <Collapsible className="w-[100%]">
+      <Collapsible
+        className="w-[100%]"
+        open={detailsVisible}
+        onOpenChange={setDetailsVisible}
+      >
         <div className="flex gap-4">
           <InterestSelector paper={props.paper} />
           <div className="w-[100%]">
@@ -109,9 +116,11 @@ function PaperListItem(props: { paper: Paper }) {
                 <PaperSource paper={props.paper} />
               </div>
               <CollapsibleTrigger className="grow-0">
-                <div className="align-text-top h-[100%] text-lg text-accent-foreground">
-                  +
-                </div>
+                <Button variant="ghost">
+                  {!detailsVisible ? <ChevronDown /> : <ChevronUp />}
+                </Button>
+                {/* <div className="align-text-top h-[100%] text-muted-foreground">
+                </div> */}
               </CollapsibleTrigger>
             </div>
             <CollapsibleContent>

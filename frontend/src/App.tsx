@@ -1,22 +1,12 @@
 import "./App.css";
+import { ThemeProvider } from "./components/theme-provider";
 import { useEffect, useState } from "react";
 
-import SortStrategySelection, {
-  SortStrategy,
-} from "./components/sort-strategy";
-import FilterStrategySelection, {
-  FilterStrategy,
-} from "./components/filter-strategy";
 import { PaperList } from "./components/paper";
 
+import { Settings } from "./components/settings";
+
 function App() {
-  const [sortStrategy, setSortStrategy] = useState<SortStrategy>({
-    sort_kind: "date",
-    sort_direction: "descending",
-  });
-  const [filterStrategy, setFilterStrategy] = useState<FilterStrategy>({
-    filters: [],
-  });
   const [papers, setPapers] = useState([]);
 
   useEffect(() => {
@@ -24,20 +14,19 @@ function App() {
       .then((response) => response.json())
       .then(setPapers)
       .catch((error) => console.error("Error fetching data: ", error));
-  }, [sortStrategy, filterStrategy]);
+  }, []);
 
   return (
-    <div>
+    <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
       <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
         <div className="text-lg">sieve</div>
         <div className="grow"></div>
-        <SortStrategySelection onSortStrategyChange={setSortStrategy} />
-        <FilterStrategySelection onFilterStrategyChange={setFilterStrategy} />
+        <Settings />
       </header>
       <div className="flex flex-1 flex-col gap-4 p-4">
         <PaperList papers={papers} />
       </div>
-    </div>
+    </ThemeProvider>
   );
 }
 export default App;
